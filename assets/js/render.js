@@ -1,105 +1,135 @@
-const Render = {
-    /**
-     * 渲染文章列表
-     */
-    renderList(articles) {
-        const box = document.getElementById('listBox');
-        if (!box) return;
-        if (!articles.length) {
-            box.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-secondary)">暂无内容</div>';
-            return;
-        }
-        box.innerHTML = articles.map(a => {
-            const read = Store.isRead(a.id) ? ' read' : '';
-            const star = Store.isStar(a.id) ? '⭐' : '☆';
-            return `<div class="list-item${read}" data-id="${a.id}" role="listitem">
-                <div class="item-title">${safeHTML(a.title)}</div>
-                <div class="item-meta">
-                    <span>${safeHTML(a.source || '')}</span>
-                    <span>${formatDate(a.date)}</span>
-                    <span class="star-icon" data-star="${a.id}">${star}</span>
-                    <span class="read-marker"></span>
-                </div>
-            </div>`;
-        }).join('');
-    },
+/**
+ * render.js - DOM 渲染层
+ * 挂载到全局 window.Render 对象
+ */
 
-    /**
-     * 更新统计信息 —— 全局未读/收藏计数
-     */
-    updateStat(articles) {
-        const el = document.getElementById('statBox');
-        if (!el) return;
-        const all = Store.getArticles();
-        const totalRead = all.filter(a => Store.isRead(a.id)).length;
-        const totalStar = all.filter(a => Store.isStar(a.id)).length;
-        const unread = all.length - totalRead;
-        el.textContent = `📋 ${articles.length} 条 · 🔖 未读 ${unread} · ⭐ 收藏 ${totalStar}`;
-    },
+window.Render = (function () {
 
-    /**
-     * 渲染文章详情
-     * - 原始描述纯文本渲染（防 XSS）
-     * - README 缓存使用 insertAdjacentHTML 直接插入（避免 firstChild 遍历丢内容）
-     */
-    renderDetail(article) {
-        const box = document.getElementById('detailBox');
-        if (!box || !article) return;
+  /**
+   * 渲染左侧文章列表
+   */
+  function renderList(articles) {
+    var listBox = document.getElementById('listBox');
+    if (!listBox) return;
 
-        // 保存原始描述
-        if (!article._originalContent) {
-            article._originalContent = article.content || '';
-        }
-
-        const descText = article._originalContent || '暂无正文内容';
-
-        // 底部操作栏按钮文案
-        const starBtnText = Store.isStar(article.id) ? '💔 取消收藏' : '⭐ 收藏';
-        const readBtnText = Store.isRead(article.id) ? '📖 取消已读' : '📖 标记已读';
-
-        box.innerHTML = `
-            <div class="read-progress-bar" id="progressBar"></div>
-            <div class="article-header">
-                <h2 class="article-title">${safeHTML(article.title)}</h2>
-                <div class="article-meta">
-                    <span>📰 ${safeHTML(article.source || '未知来源')}</span>
-                    <span>📅 ${formatDate(article.date)}</span>
-                </div>
-            </div>
-            <div class="article-content">
-                <p>${safeHTML(descText)}</p>
-            </div>
-            <div class="article-actions">
-                <button class="tool-btn" data-action="toggle-read">${readBtnText}</button>
-                <button class="tool-btn" data-action="toggle-star">${starBtnText}</button>
-            </div>`;
-
-        // 如果已有缓存的 README，使用 insertAdjacentHTML 直接插入
-        if (article._readmeHtml) {
-            box.insertAdjacentHTML('beforeend',
-                '<hr style="border:0;border-top:1px solid var(--border-color,#30363d);margin:24px 0;">' +
-                '<div class="markdown-body">' + article._readmeHtml + '</div>'
-            );
-        }
-
-        // 记录历史
-        Store.addHistory(article);
-        Render.renderHistory();
-
-        // 重置进度条
-        const bar = document.getElementById('progressBar');
-        if (bar) bar.style.width = '0%';
-    },
-
-    /**
-     * 渲染浏览历史
-     */
-    renderHistory() {
-        const container = document.getElementById('historyItems');
-        if (!container) return;
-        const list = Store.getHistory();
-        container.innerHTML = list.length ? list.map(h =>
-            `<div class="history-item" data-hid="${h.id}">${safeHTML(h.title)}</div>`
-        ).join('') : '<span style="font-size:0.8rem;color:var(--text-secondary)">暂无浏览记录</span>';
+    if (!articles || articles.length === 0) {
+      listBox.innerHTML = '<div style="padding:40px;text-align:center;color:#999;">暂无相关文章</div>';
+      return;
     }
-};
+
+    var html = articles.map(function (article) {
+      var isRead = window.Store && window.Store.isRead(article.id);
+      var isStar = window.Store && window.Store.isStar(article.id);
+      
+      return '<div class="list-item ' + (isRead ? 'read' : '') + '" data-id="' + article.id + '">' +
+        '<div class="list-item-header">' +
+          '<span class="list-item-title">' + escapeHtml(article.title) + '</span>' +
+          '<button class="star-btn ' + (isStar ? 'active' : '') + '" data-star="' + article.id + '" aria-label="收藏">' + 
+            (isStar ? '⭐' : '☆') + 
+          '</button>' +
+        '</div>' +
+        '<div class="list-item-desc">' + escapeHtml(article.description) + '</div>' +
+      '</div>';
+    }).join('');
+
+    listBox.innerHTML = html;
+  }
+
+  /**
+   * 更新统计信息
+   */
+  function updateStat(articles) {
+    var statBox = document.getElementById('statBox');
+    if (!statBox || !articles) return;
+    
+    var total = articles.length;
+    var readCount = articles.filter(function (a) { return window.Store && window.Store.isRead(a.id); }).length;
+    
+    statBox.innerHTML = '共 <strong>' + total + '</strong> 篇，已读 <strong>' + readCount + '</strong> 篇';
+  }
+
+  /**
+   * 渲染浏览历史
+   */
+  function renderHistory() {
+    var historyItems = document.getElementById('historyItems');
+    if (!historyItems) return;
+
+    var history = (window.Store && window.Store.getHistory) ? window.Store.getHistory() : [];
+    
+    if (history.length === 0) {
+      historyItems.innerHTML = '<div style="padding:10px;color:#999;font-size:0.875rem;">暂无浏览记录</div>';
+      return;
+    }
+
+    var html = history.slice(0, 10).map(function (item) {
+      return '<div class="history-item" data-hid="' + item.id + '">' + escapeHtml(item.title) + '</div>';
+    }).join('');
+
+    historyItems.innerHTML = html;
+  }
+
+  /**
+   * 渲染右侧文章详情（基本信息）
+   * ⚠️ 注意：此方法会清空 #detailBox，后续 README 内容由 app.js 追加
+   */
+  function renderDetail(article) {
+    var detailBox = document.getElementById('detailBox');
+    if (!detailBox || !article) return;
+
+    var isRead = window.Store && window.Store.isRead(article.id);
+    var isStar = window.Store && window.Store.isStar(article.id);
+
+    var html = '<div class="article-header">' +
+      '<h2 class="article-title">' + escapeHtml(article.title) + '</h2>' +
+      '<div class="article-meta">' +
+        '<span>👤 ' + escapeHtml(article.author || 'Unknown') + '</span>' +
+        '<span>📅 ' + formatDate(article.createdAt) + '</span>' +
+      '</div>' +
+      '<div class="article-actions">' +
+        '<button class="action-btn" data-action="toggle-read">' + (isRead ? '📖 标为未读' : '👁️ 标为已读') + '</button>' +
+        '<button class="action-btn" data-action="toggle-star">' + (isStar ? '💔 取消收藏' : '⭐ 收藏文章') + '</button>' +
+        '<a href="' + (article.url || '#') + '" target="_blank" class="action-btn">🔗 访问原文</a>' +
+      '</div>' +
+    '</div>' +
+    '<div class="article-desc" style="padding:16px 0;border-bottom:1px solid var(--border-color,#eee);margin-bottom:24px;">' + 
+      escapeHtml(article.description) + 
+    '</div>';
+
+    // 清空容器并插入基本信息
+    detailBox.innerHTML = html;
+
+    // 如果 README 已经加载过，直接追加缓存内容
+    if (article._readmeLoaded && article._readmeHtml) {
+      detailBox.insertAdjacentHTML('beforeend',
+        '<hr style="border:0;border-top:1px solid var(--border-color,#30363d);margin:24px 0;">' +
+        '<div class="markdown-body">' + article._readmeHtml + '</div>'
+      );
+    }
+  }
+
+  // --- 辅助函数 ---
+  function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    try {
+      var d = new Date(dateStr);
+      return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  return {
+    renderList: renderList,
+    updateStat: updateStat,
+    renderHistory: renderHistory,
+    renderDetail: renderDetail
+  };
+})();
