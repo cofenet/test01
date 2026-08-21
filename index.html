@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地内容阅读器</title>
+    <link rel="stylesheet" href="assets/css/variables.css">
+    <link rel="stylesheet" href="assets/css/layout.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/markdown.css">
+</head>
+<body>
+    <!-- Toast -->
+    <div class="toast" id="toast" role="alert" aria-live="polite"></div>
+
+    <!-- Header -->
+    <header class="header-wrap">
+        <h1 class="main-title">📰 本地内容阅读器</h1>
+        <div class="header-right">
+            <div class="weather-box" aria-label="天气信息">
+                <span>🌤️</span>
+                <span id="weatherText">北京｜晴｜26℃</span>
+            </div>
+            <button id="themeBtn" aria-label="切换主题">切换暗黑模式</button>
+        </div>
+    </header>
+
+    <!-- Search -->
+    <div class="search-wrap">
+        <input id="searchInput" type="search" placeholder="🔍 搜索文章标题..." autocomplete="off" aria-label="搜索文章">
+    </div>
+
+    <!-- Category Tabs -->
+    <nav class="tab-wrap" role="tablist" aria-label="文章分类">
+        <button class="tab-btn active" data-cat="all" role="tab" aria-selected="true">全部</button>
+        <button class="tab-btn" data-cat="tech" role="tab" aria-selected="false">科技类</button>
+        <button class="tab-btn" data-cat="sport" role="tab" aria-selected="false">体育类</button>
+        <button class="tab-btn" data-cat="star" role="tab" aria-selected="false">⭐只看收藏</button>
+        <button class="tab-btn" data-cat="unread" role="tab" aria-selected="false">🔖只看未读</button>
+    </nav>
+
+    <!-- Toolbar -->
+    <div class="tool-wrap" role="toolbar" aria-label="工具栏">
+        <button class="tool-btn" id="refreshBtn">🔄 抓取最新热点</button>
+        <button class="tool-btn" id="focusModeBtn">🎯 专注阅读</button>
+        <button class="tool-btn" id="markAllRead">✅ 全部标为已读</button>
+        <button class="tool-btn" id="clearAllRead">🗑️ 清除已读标记</button>
+        <button class="tool-btn" id="clearAllStar">💔 清空收藏</button>
+        <div class="font-group" role="group" aria-label="字号调节">
+            <button class="font-btn" data-root="14">小</button>
+            <button class="font-btn active" data-root="16">标准</button>
+            <button class="font-btn" data-root="19">大</button>
+        </div>
+    </div>
+
+    <!-- History Panel -->
+    <section class="history-panel" id="historyPanel" aria-label="浏览历史">
+        <div class="history-header">
+            <div class="history-title">🕐 最近浏览</div>
+            <button class="history-clear-btn" id="clearHistoryAll">🗑️ 清空历史</button>
+        </div>
+        <div class="history-items" id="historyItems"></div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="container" id="containerWrap">
+        <aside class="left-sidebar" id="listScrollWrap" aria-label="文章列表">
+            <div class="sidebar-title">📋 内容列表</div>
+            <div class="stat-info" id="statBox"></div>
+            <div id="listBox" role="list"></div>
+            <div class="list-loading" id="listLoading">🔄 正在抓取最新热点...</div>
+            <button id="listBackTop" aria-label="列表回到顶部">⬆</button>
+        </aside>
+
+        <article class="right-article" id="detailBox" aria-label="文章内容">
+            <div class="read-progress-bar" id="progressBar"></div>
+            <div class="empty-tip">
+                <span>👈 点击左侧标题阅读文章</span>
+                <span style="font-size:0.875rem;">仅本地个人学习使用</span>
+            </div>
+        </article>
+    </main>
+
+    <!-- Global Back to Top -->
+    <button id="backTop" aria-label="回到页面顶部">⬆</button>
+
+    <!-- Disclaimer -->
+    <footer class="disclaimer-wrap">
+        <h4>免责声明</h4>
+        <p>本程序为本地个人学习工具。仅供个人学习使用。</p>
+    </footer>
+
+    <!-- JS 按依赖顺序引入 -->
+    <script src="assets/js/utils.js"></script>
+    <script src="assets/js/store.js"></script>
+    <script src="assets/js/api.js"></script>
+    <script src="assets/js/render.js"></script>
+    <script src="assets/js/app.js"></script>
+</body>
+</html>
