@@ -45,7 +45,23 @@ window.Render = (function () {
     var total = articles.length;
     var readCount = articles.filter(function (a) { return window.Store && window.Store.isRead(a.id); }).length;
     
-    statBox.innerHTML = '共 <strong>' + total + '</strong> 篇，已读 <strong>' + readCount + '</strong> 篇';
+    // ✅ 计算收藏数
+    var starCount = 0;
+    if (window.Store) {
+        if (typeof window.Store.getStarCount === 'function') {
+            starCount = window.Store.getStarCount();
+        } else if (typeof window.Store.getStars === 'function') {
+            var stars = window.Store.getStars();
+            if (Array.isArray(stars)) {
+                starCount = stars.length;
+            } else if (typeof stars === 'object' && stars !== null) {
+                starCount = Object.keys(stars).filter(function(k) { return stars[k]; }).length;
+            }
+        }
+    }
+    
+    statBox.innerHTML = '共 <strong>' + total + '</strong> 篇，已读 <strong>' + readCount + '</strong> 篇，收藏：<strong>' + starCount + '</strong> 篇';
+}
   }
 
   /**
