@@ -36,16 +36,22 @@ window.Render = (function () {
   }
 
   /**
-   * 更新统计信息
+   * 更新统计信息（包含已读和收藏）
    */
   function updateStat(articles) {
     var statBox = document.getElementById('statBox');
-    if (!statBox || !articles) return;
+    if (!statBox) return;
+
+    // 如果没有传入 articles，尝试从 Store 获取
+    if (!articles && window.Store && typeof window.Store.getArticles === 'function') {
+      articles = window.Store.getArticles();
+    }
+    if (!articles) return;
     
     var total = articles.length;
     var readCount = articles.filter(function (a) { return window.Store && window.Store.isRead(a.id); }).length;
     
-    // ✅ 计算收藏数
+    // 计算收藏数
     var starCount = 0;
     if (window.Store) {
         if (typeof window.Store.getStarCount === 'function') {
@@ -61,31 +67,6 @@ window.Render = (function () {
     }
     
     statBox.innerHTML = '共 <strong>' + total + '</strong> 篇，已读 <strong>' + readCount + '</strong> 篇，收藏：<strong>' + starCount + '</strong> 篇';
-}
-  }
-
-  /**
-   * 更新收藏统计信息（新增）
-   */
-  function updateFavoritesStat() {
-    var container = document.getElementById('favorites-list');
-    if (!container) return;
-
-    var count = 0;
-    if (window.Store) {
-      if (typeof window.Store.getStarCount === 'function') {
-        count = window.Store.getStarCount();
-      } else if (typeof window.Store.getStars === 'function') {
-        var stars = window.Store.getStars();
-        if (Array.isArray(stars)) {
-          count = stars.length;
-        } else if (typeof stars === 'object' && stars !== null) {
-          count = Object.keys(stars).filter(function(k) { return stars[k]; }).length;
-        }
-      }
-    }
-
-    container.innerHTML = '收藏：<strong>' + count + '</strong> 篇';
   }
 
   /**
@@ -169,7 +150,6 @@ window.Render = (function () {
   return {
     renderList: renderList,
     updateStat: updateStat,
-    updateFavoritesStat: updateFavoritesStat, // ✅ 新增导出
     renderHistory: renderHistory,
     renderDetail: renderDetail
   };
