@@ -49,6 +49,30 @@ window.Render = (function () {
   }
 
   /**
+   * 更新收藏统计信息（新增）
+   */
+  function updateFavoritesStat() {
+    var container = document.getElementById('favorites-list');
+    if (!container) return;
+
+    var count = 0;
+    if (window.Store) {
+      if (typeof window.Store.getStarCount === 'function') {
+        count = window.Store.getStarCount();
+      } else if (typeof window.Store.getStars === 'function') {
+        var stars = window.Store.getStars();
+        if (Array.isArray(stars)) {
+          count = stars.length;
+        } else if (typeof stars === 'object' && stars !== null) {
+          count = Object.keys(stars).filter(function(k) { return stars[k]; }).length;
+        }
+      }
+    }
+
+    container.innerHTML = '收藏：<strong>' + count + '</strong> 篇';
+  }
+
+  /**
    * 渲染浏览历史
    */
   function renderHistory() {
@@ -129,6 +153,7 @@ window.Render = (function () {
   return {
     renderList: renderList,
     updateStat: updateStat,
+    updateFavoritesStat: updateFavoritesStat, // ✅ 新增导出
     renderHistory: renderHistory,
     renderDetail: renderDetail
   };
