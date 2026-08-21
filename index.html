@@ -68,12 +68,14 @@
     <!-- Main Content -->
     <main class="container" id="containerWrap">
         <aside class="left-sidebar" id="listScrollWrap" aria-label="文章列表">
-            <div class="sidebar-title">📋 内容列表</div>
-            <div class="stat-info" id="statBox"></div>
-            <div id="listBox" role="list"></div>
-            <div class="list-loading" id="listLoading">🔄 正在抓取最新热点...</div>
-            <button id="listBackTop" aria-label="列表回到顶部">⬆</button>
-        </aside>
+    <div class="sidebar-title">📋 内容列表</div>
+    <div class="stat-info" id="statBox"></div>
+    <!-- ✅ 新增：收藏夹统计容器 -->
+<div class="stat-info star-count" id="favorites-list" data-stat="star"></div>
+    <div id="listBox" role="list"></div>
+    <div class="list-loading" id="listLoading">🔄 正在抓取最新热点...</div>
+    <button id="listBackTop" aria-label="列表回到顶部">⬆</button>
+</aside>
 
         <article class="right-article" id="detailBox" aria-label="文章内容">
             <div class="read-progress-bar" id="progressBar"></div>
