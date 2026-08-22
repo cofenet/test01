@@ -26,6 +26,7 @@
     loadWeather();
     Render.renderHistory();
     Render.updateStat();
+    initMobileSidebar();
   });
 
   // ========== 数据加载 ==========
