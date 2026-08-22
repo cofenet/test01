@@ -276,3 +276,109 @@
     #backTop { bottom: 20px; right: 20px; width: 40px; height: 40px; }
     .article-title { font-size: 1.25rem; }
 }
+/* =========================================
+   🔧 热点列表布局修复覆盖 (2026-08-22)
+   真实DOM: .list-item > .item-title + .item-meta > (.read-marker + span + .star-icon)
+   ========================================= */
+
+/* 1. 覆盖原有 .list-item 竖排布局 → 改为横排 flex */
+.list-item {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+    border-radius: var(--radius-sm, 6px) !important;
+    border-bottom: none !important;          /* 移除原有底部分割线 */
+    border: 1px solid transparent !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    transition: all 0.2s ease !important;
+}
+
+.list-item:hover {
+    background: var(--bg-color, rgba(255,255,255,0.05)) !important;
+    border-color: var(--border-color) !important;
+}
+
+/* 2. 标题：单行省略 + 占据剩余空间 */
+.list-item > .item-title {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    order: 1 !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    color: var(--text-primary, #e0e0e0) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.4 !important;
+    margin-bottom: 0 !important;           /* 移除原有多行布局的 margin */
+    display: block !important;             /* 覆盖原有 -webkit-box */
+    -webkit-line-clamp: unset !important;
+    -webkit-box-orient: unset !important;
+}
+
+/* 3. ⭐ 核心修复：.item-meta 设为 flex 容器，让内部元素可独立排序 */
+.list-item > .item-meta {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    flex: 0 0 auto !important;
+    margin-left: auto !important;
+    order: 2 !important;
+}
+
+/* 4. 已读标记圆点 */
+.list-item .read-marker {
+    flex: 0 0 6px !important;
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: var(--accent-color, #4fc3f7) !important;
+    display: inline-block !important;      /* 覆盖原有 .list-item.read .read-marker{display:none} */
+    opacity: 1 !important;
+    order: 1 !important;
+}
+
+/* 5. 已读状态：降低标题透明度 + 圆点变灰（而非隐藏） */
+.list-item.read > .item-title {
+    opacity: 0.5 !important;
+}
+.list-item.read .read-marker {
+    background: var(--border-color, #555) !important;
+    opacity: 0.5 !important;
+}
+
+/* 6. 隐藏 .item-meta 中的空 span */
+.list-item .item-meta > span:not(.read-marker):not(.star-icon) {
+    display: none !important;
+}
+
+/* 7. 收藏星星 */
+.list-item .star-icon {
+    flex: 0 0 auto !important;
+    background: none !important;
+    border: none !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    color: var(--text-secondary, #aaa) !important;
+    transition: all 0.2s ease !important;
+    padding: 2px !important;
+    order: 2 !important;
+}
+.list-item .star-icon:hover {
+    color: #f59e0b !important;
+    transform: scale(1.2) !important;
+}
+.list-item .star-icon.active {
+    color: #f59e0b !important;
+}
+
+/* 8. 清除之前无效的 .news-* 样式残留影响（可选清理） */
+.news-item, .news-title, .news-read-marker, .news-fav-btn {
+    all: unset !important;
+}
