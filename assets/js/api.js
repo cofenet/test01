@@ -1,6 +1,6 @@
 /**
- * api.js - 数据请求层（最终整合修复版）
- * 修复：右侧 Base64 乱码 + 恢复完整列表数据获取逻辑
+ * api.js - 数据请求层（整合列表缓存 + 静默刷新版）
+ * 修复：右侧 Base64 乱码 + 恢复完整列表数据获取逻辑 + 新增列表级 localStorage 缓存
  */
 const API = {
     baseUrl: 'https://api.github.com/search/repositories',
@@ -8,22 +8,57 @@ const API = {
     // 每个分类可配置多条查询（分别请求后合并，避免使用 OR 语法触发 422）
     queryMap: {
         'tech': ['topic:artificial-intelligence stars:>1000', 'topic:llm stars:>1000'],
-        // ✅ 新增：Python 开发编程热点（替代原 sport）
-    'python': [
-        'language:python topic:web-development stars:>500',
-        'language:python topic:data-science stars:>500',
-        'language:python topic:automation stars:>300'
-    ],
+        // ✅ Python 开发编程热点
+        'python': [
+            'language:python topic:web-development stars:>500',
+            'language:python topic:data-science stars:>500',
+            'language:python topic:automation stars:>300'
+        ],
         'all': ['stars:>1000']
+    },
+
+    // ========== 🆕 列表缓存配置 ==========
+    _listCachePrefix: 'gh_list_cache::',
+    _listCacheTTL: 30 * 60 * 1000, // 缓存有效期：30分钟
+
+    _listCacheKey(category) {
+        return this._listCachePrefix + category;
+    },
+
+    _getCachedList(category) {
+        try {
+            const raw = localStorage.getItem(this._listCacheKey(category));
+            if (!raw) return null;
+            const obj = JSON.parse(raw);
+            // 未过期才返回
+            if (Date.now() - obj.ts > this._listCacheTTL) return null;
+            return obj.articles;
+        } catch (e) { return null; }
+    },
+
+    // 获取过期缓存（用于网络失败时的降级展示）
+    _getStaleList(category) {
+        try {
+            const raw = localStorage.getItem(this._listCacheKey(category));
+            if (!raw) return null;
+            const obj = JSON.parse(raw);
+            return obj.articles;
+        } catch (e) { return null; }
+    },
+
+    _setCachedList(category, articles) {
+        try {
+            localStorage.setItem(
+                this._listCacheKey(category),
+                JSON.stringify({ ts: Date.now(), articles })
+            );
+        } catch (e) {
+            console.warn('⚠️ [API] 列表缓存写入失败:', e);
+        }
     },
 
     // ========== 基础请求封装（强制走 Vercel 代理） ==========
     
-    /**
-     * 通过 Vercel Serverless 代理发起请求
-     * @param {string} targetUrl - 真实的 GitHub API / raw 地址
-     * @param {object} options - fetch 配置项
-     */
     async _proxyFetch(targetUrl, options = {}) {
         const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
         console.log(`📡 [API] 发起代理请求: ${targetUrl}`);
@@ -35,7 +70,6 @@ const API = {
 
     // ========== 文章列表获取 ==========
 
-    // 单次搜索请求
     async _search(query) {
         const url = `${this.baseUrl}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=15`;
         const res = await this._proxyFetch(url);
@@ -49,51 +83,65 @@ const API = {
         return json.items;
     },
 
+    // 🆕 提取数据处理逻辑（去重、排序、格式化），供 fetchArticles 和 _silentRefresh 复用
+    _processItems(merged, category) {
+        const seen = new Set();
+        const unique = merged.filter(item => {
+            if (seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+        });
+
+        unique.sort((a, b) => b.stargazers_count - a.stargazers_count);
+        const top = unique.slice(0, 20);
+
+        return top.map(item => ({
+            id: String(item.id),
+            title: item.full_name,
+            source: 'GitHub 开源热榜',
+            date: item.updated_at ? item.updated_at.split('T')[0] : '未知',
+            hot: `⭐ ${item.stargazers_count.toLocaleString()}`,
+            category: category,
+            content: `
+                <p><strong>📝 简介：</strong>${item.description || '暂无简介'}</p>
+                <p><strong>🌐 语言：</strong>${item.language || '未知'} | <strong>🔗 链接：</strong>
+                <a href="${item.html_url}" target="_blank" rel="noopener">${item.full_name}</a></p>
+                <p style="color:var(--text-secondary);font-size:0.9rem;margin-top:12px;">
+                ⭐ 星标：${item.stargazers_count.toLocaleString()} | 最后更新：${item.updated_at ? item.updated_at.split('T')[0] : '未知'}
+                </p>`
+        }));
+    },
+
     async fetchArticles(category = 'tech') {
         console.log(`🚀 [API] 开始拉取数据，分类: ${category}`);
 
         const loading = document.getElementById('listLoading');
-        if (loading) loading.style.display = 'block';
-
         const queries = this.queryMap[category] || this.queryMap['tech'];
 
+        // 🆕 1. 优先尝试读取缓存（秒开 + 离线可用）
+        const cached = this._getCachedList(category);
+        if (cached && cached.length > 0) {
+            console.log(`💾 [API] 命中列表缓存: ${category} (${cached.length}条)`);
+            if (typeof Store !== 'undefined' && typeof Store.setArticles === 'function') {
+                Store.setArticles(cached);
+            }
+            if (loading) loading.style.display = 'none';
+            
+            // 🆕 2. 后台静默刷新（用户无感知）
+            this._silentRefresh(category, queries);
+            return cached;
+        }
+
+        // 无缓存时正常走原有请求逻辑
+        if (loading) loading.style.display = 'block';
+
         try {
-            // 1. 多条查询并行发送，合并结果
             const results = await Promise.all(queries.map(q => this._search(q)));
             const merged = results.flat();
-
-            // 2. 按项目 id 去重（同一项目可能同时命中多条查询）
-            const seen = new Set();
-            const unique = merged.filter(item => {
-                if (seen.has(item.id)) return false;
-                seen.add(item.id);
-                return true;
-            });
-
-            // 3. 按星标数降序，取前 20 条
-            unique.sort((a, b) => b.stargazers_count - a.stargazers_count);
-            const top = unique.slice(0, 20);
-
-            // 4. 转换为阅读器标准格式
-            const articles = top.map(item => ({
-                id: String(item.id),
-                title: item.full_name,
-                source: 'GitHub 开源热榜',
-                date: item.updated_at ? item.updated_at.split('T')[0] : '未知',
-                hot: `⭐ ${item.stargazers_count.toLocaleString()}`,
-                category: category,
-                content: `
-                    <p><strong>📝 简介：</strong>${item.description || '暂无简介'}</p>
-                    <p><strong>🌐 语言：</strong>${item.language || '未知'} | <strong>🔗 链接：</strong>
-                    <a href="${item.html_url}" target="_blank" rel="noopener">${item.full_name}</a></p>
-                    <p style="color:var(--text-secondary);font-size:0.9rem;margin-top:12px;">
-                    ⭐ 星标：${item.stargazers_count.toLocaleString()} | 最后更新：${item.updated_at ? item.updated_at.split('T')[0] : '未知'}
-                    </p>`
-            }));
+            const articles = this._processItems(merged, category);
 
             console.log(`✅ [API] 成功转换 ${articles.length} 条数据`);
 
-            // 5. 存入 Store
             if (typeof Store !== 'undefined' && typeof Store.setArticles === 'function') {
                 Store.setArticles(articles);
                 console.log('💾 [API] 数据已存入 Store');
@@ -101,25 +149,56 @@ const API = {
                 console.error('❌ [API] Store.setArticles 方法不存在！请检查 store.js');
             }
 
+            // 🆕 3. 请求成功后写入缓存
+            this._setCachedList(category, articles);
+
             return articles;
 
         } catch (e) {
             console.error('❌ [API] 数据获取失败:', e);
+            
+            // 🆕 4. 请求失败时降级使用过期缓存
+            const stale = this._getStaleList(category);
+            if (stale && stale.length > 0) {
+                console.log(`⚠️ [API] 网络失败，降级使用过期缓存: ${category}`);
+                if (typeof showToast === 'function') showToast('网络异常，已加载上次缓存的数据');
+                if (typeof Store !== 'undefined' && typeof Store.setArticles === 'function') {
+                    Store.setArticles(stale);
+                }
+                return stale;
+            }
+
             if (typeof showToast === 'function') showToast('获取开源热榜失败，请查看控制台');
-            return []; // 失败返回空数组，防止后续报错
+            return [];
         } finally {
             if (loading) loading.style.display = 'none';
         }
     },
 
+    // 🆕 后台静默刷新（不显示loading，不打断用户阅读）
+    async _silentRefresh(category, queries) {
+        try {
+            console.log(`🔄 [API] 开始后台静默刷新: ${category}`);
+            const results = await Promise.all(queries.map(q => this._search(q)));
+            const merged = results.flat();
+            const articles = this._processItems(merged, category);
+            
+            this._setCachedList(category, articles);
+            if (typeof Store !== 'undefined' && typeof Store.setArticles === 'function') {
+                Store.setArticles(articles);
+            }
+            console.log(`✅ [API] 后台刷新完成: ${category} (${articles.length}条)`);
+        } catch (e) {
+            console.log('🔄 [API] 后台刷新失败，继续使用缓存:', e.message);
+        }
+    },
+
     /* ================= README 懒加载（多级容错 + Base64解码 + Markdown渲染） ================= */
 
-    // localStorage 缓存配置
     _readmeCachePrefix: 'gh_readme_cache::',
     _readmeCacheMax: 30,
     _tokenKey: 'github_token',
 
-    // 可选的认证头
     _authHeaders() {
         const headers = {};
         try {
@@ -129,7 +208,6 @@ const API = {
         return headers;
     },
 
-    // ---------- README 本地缓存：读取 ----------
     _getCachedReadme(fullName) {
         try {
             const raw = localStorage.getItem(this._readmeCachePrefix + fullName);
@@ -139,7 +217,6 @@ const API = {
         } catch (e) { return null; }
     },
 
-    // ---------- README 本地缓存：写入 ----------
     _setCachedReadme(fullName, html) {
         try {
             const keys = [];
@@ -163,7 +240,6 @@ const API = {
         }
     },
 
-    // ---------- 修复 README 中的相对路径 ----------
     _fixRelativeUrls(html, fullName) {
         try {
             const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -188,26 +264,19 @@ const API = {
         }
     },
 
-    // ---------- 🆕 Markdown 转 HTML（集成 marked.js） ----------
     _renderMarkdown(text) {
         if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
             return marked.parse(text);
         }
-        // 兜底：简单转义
         const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         return '<pre class="md-raw" style="white-space:pre-wrap;word-break:break-word;line-height:1.7;font-size:0.92rem;">' + escaped + '</pre>';
     },
 
-    /**
-     * 获取指定仓库的 README 文档
-     * 修复点：增加 Base64 自动解码 + marked.js 渲染
-     */
     async fetchReadme(fullName) {
         if (!fullName || !fullName.includes('/')) {
             return { ok: false, reason: 'error', message: '仓库名格式不正确，无法加载 README。' };
         }
 
-        // 0. 命中本地缓存
         const cached = this._getCachedReadme(fullName);
         if (cached) {
             console.log(`💾 [API] README 命中本地缓存: ${fullName}`);
@@ -216,7 +285,6 @@ const API = {
 
         let apiFailInfo = null;
 
-        // 1. GitHub API HTML 渲染接口（走代理）
         try {
             const targetUrl = `https://api.github.com/repos/${fullName}/readme`;
             const res = await this._proxyFetch(targetUrl, {
@@ -227,11 +295,9 @@ const API = {
                 const contentType = res.headers.get('content-type') || '';
                 let html = '';
 
-                // 🆕 核心修复：检测返回内容是否为 HTML
                 if (contentType.includes('text/html')) {
                     html = this._fixRelativeUrls(await res.text(), fullName);
                 } else {
-                    // ⚠️ 代理未透传 Accept 头，GitHub 返回了 Base64 JSON
                     console.warn('⚠️ [API] 主通道返回非HTML，尝试Base64解码...');
                     const json = await res.json();
                     if (json.content) {
@@ -267,7 +333,6 @@ const API = {
             console.warn('⚠️ [API] README 主通道网络异常，尝试 raw 备用通道...', e);
         }
 
-        // 2. 备用通道：raw.githubusercontent.com（走代理）+ marked.js 渲染
         try {
             const candidates = ['README.md', 'readme.md', 'README.MD', 'README.rst', 'README.txt'];
             for (const name of candidates) {
@@ -276,7 +341,6 @@ const API = {
                 
                 if (r2.ok) {
                     const text = await r2.text();
-                    // 🆕 使用 marked.js 渲染，不再是纯文本
                     const html = this._fixRelativeUrls(this._renderMarkdown(text), fullName);
                     this._setCachedReadme(fullName, html);
                     console.log(`✅ [API] raw 备用通道成功: ${fullName}/${name}`);
@@ -288,7 +352,6 @@ const API = {
             console.warn('⚠️ [API] raw 备用通道也失败:', e);
         }
 
-        // 3. 全部失败
         if (apiFailInfo && apiFailInfo.reason === 'rate-limit') {
             apiFailInfo.message = apiFailInfo.message.replace('正在尝试备用通道...', '备用通道也未能获取。请稍后重试或配置 GITHUB_TOKEN。');
         } else if (apiFailInfo) {
