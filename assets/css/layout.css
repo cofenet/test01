@@ -189,13 +189,11 @@ body {
   padding: 0; margin: -1px; overflow: hidden; 
   clip: rect(0, 0, 0, 0); border: 0; 
 }
-/* =========================================
-   移动端侧边栏抽屉补丁 (追加到 layout.css 最末尾)
-   ========================================= */
+/* === 移动端左侧列表抽屉样式 [最终修正版] === */
 
-/* 1. 汉堡按钮与遮罩层基础样式 */
+/* 1. 汉堡按钮：默认隐藏，只在手机端显示 */
 .mobile-menu-btn {
-  display: none; /* 桌面端默认隐藏 */
+  display: none; /* 关键：电脑端必须隐藏 */
   background: none;
   border: none;
   font-size: 1.5rem;
@@ -205,51 +203,71 @@ body {
   min-width: 44px;
   align-items: center;
   justify-content: center;
+  margin-right: 8px;
+  flex-shrink: 0; /* 防止被挤压 */
 }
 
+/* 2. 遮罩层：默认隐藏 */
 .sidebar-overlay {
   display: none;
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 199;
+  z-index: 998;
   opacity: 0;
   transition: opacity 0.3s ease;
+  backdrop-filter: blur(2px); /* 增加一点模糊效果，更现代 */
 }
 
-/* 2. 移动端专属样式 (屏幕宽度 < 768px) */
-@media (max-width: 768px) {
-  /* 显示汉堡按钮 */
-  .mobile-menu-btn {
-    display: inline-flex;
-  }
+/* 3. 核心：只有屏幕宽度 <= 768px 时才激活抽屉模式 */
+@media screen and (max-width: 768px) {
   
-  /* 侧边栏变为抽屉 (请将 .sidebar 替换为您实际的侧边栏类名，如 .left-nav, .aside-menu 等) */
-  .sidebar {
+  /* 显示汉堡按钮 */
+  .mobile-menu-btn { 
+    display: inline-flex; 
+  }
+
+  /* 侧边栏变为抽屉 */
+  .left-sidebar {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     bottom: 0 !important;
-    width: 280px !important;
+    width: 280px !important; /* 稍微窄一点，适应手机 */
     max-width: 80vw !important;
     background: var(--color-bg-primary, #fff) !important;
-    z-index: 200 !important;
-    transform: translateX(-100%) !important;
-    transition: transform 0.3s ease !important;
-    padding: 70px 16px 16px !important;
+    z-index: 999 !important;
+    
+    /* 关键动画属性 */
+    transform: translateX(-100%) !important; /* 默认藏在屏幕外 */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    
+    padding: 60px 12px 12px !important; /* 给顶部按钮留空间 */
     overflow-y: auto !important;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1) !important;
-    display: block !important; /* 强制显示，由 transform 控制可见性 */
-  }
-
-  /* 侧边栏激活状态 */
-  .sidebar.active {
-    transform: translateX(0) !important;
-  }
-
-  /* 遮罩层激活状态 */
-  .sidebar-overlay.active {
+    box-shadow: 2px 0 12px rgba(0,0,0,0.15) !important;
     display: block !important;
-    opacity: 1 !important;
+  }
+
+  /* 激活状态：滑入屏幕 */
+  .left-sidebar.active { 
+    transform: translateX(0) !important; 
+  }
+
+  /* 遮罩层激活 */
+  .sidebar-overlay.active { 
+    display: block !important; 
+    opacity: 1 !important; 
+  }
+
+  /* 右侧文章区域占满全屏 */
+  .right-article { 
+    width: 100% !important; 
+    margin-left: 0 !important; 
+    padding: 10px !important; /* 手机端内边距调小 */
+  }
+  
+  /* 隐藏电脑端可能存在的其他干扰元素（如果有） */
+  .container {
+      flex-direction: column; /* 防止 flex 布局冲突 */
   }
 }
