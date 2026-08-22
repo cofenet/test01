@@ -1,11 +1,10 @@
 /**
  * api.js - 数据请求层（整合列表缓存 + 静默刷新版）
- * 修复：右侧链接不可用 + Base64 乱码 + 完整列表缓存 + 全局链接点击保护
+ * 修复：强制新标签页打开 + Base64 乱码 + 完整列表缓存 + 全局链接点击保护
  */
 const API = {
     baseUrl: 'https://api.github.com/search/repositories',
 
-    // 每个分类可配置多条查询（分别请求后合并，避免使用 OR 语法触发 422）
     queryMap: {
         'tech': ['topic:artificial-intelligence stars:>1000', 'topic:llm stars:>1000'],
         'python': [
@@ -18,7 +17,7 @@ const API = {
 
     // ========== 列表缓存配置 ==========
     _listCachePrefix: 'gh_list_cache::',
-    _listCacheTTL: 24 * 60 * 60 * 1000, // 24小时
+    _listCacheTTL: 24 * 60 * 60 * 1000,
 
     _listCacheKey(category) {
         return this._listCachePrefix + category;
@@ -54,7 +53,7 @@ const API = {
         }
     },
 
-    // ========== 基础请求封装（强制走 Vercel 代理） ==========
+    // ========== 基础请求封装 ==========
     async _proxyFetch(targetUrl, options = {}) {
         const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
         console.log(`📡 [API] 发起代理请求: ${targetUrl}`);
@@ -76,7 +75,7 @@ const API = {
         return json.items;
     },
 
-    // ✅ 修复：增加链接兜底 + 保存 url 字段 + 增强 a 标签属性
+    // ✅ 核心修复：确保所有链接都带 target="_blank"
     _processItems(merged, category) {
         const seen = new Set();
         const unique = merged.filter(item => {
@@ -89,7 +88,6 @@ const API = {
         const top = unique.slice(0, 20);
 
         return top.map(item => {
-            // 核心修复：防止 html_url 为 undefined/null 导致链接失效
             const repoUrl = item.html_url || `https://github.com/${item.full_name}`;
 
             return {
@@ -99,7 +97,7 @@ const API = {
                 date: item.updated_at ? item.updated_at.split('T')[0] : '未知',
                 hot: `⭐ ${item.stargazers_count.toLocaleString()}`,
                 category: category,
-                url: repoUrl, // 新增：方便 app.js 等外部模块直接获取链接
+                url: repoUrl,
                 content: `
                     <p><strong>📝 简介：</strong>${item.description || '暂无简介'}</p>
                     <p><strong>🌐 语言：</strong>${item.language || '未知'} | <strong>🔗 链接：</strong>
@@ -179,7 +177,7 @@ const API = {
         }
     },
 
-    /* ================= README 懒加载（多级容错 + Base64解码 + Markdown渲染） ================= */
+    /* ================= README 懒加载 ================= */
     _readmeCachePrefix: 'gh_readme_cache::',
     _readmeCacheMax: 30,
     _tokenKey: 'github_token',
@@ -225,7 +223,6 @@ const API = {
         }
     },
 
-    // ✅ 修复：增强链接处理，防御空 href，添加 noopener noreferrer
     _fixRelativeUrls(html, fullName) {
         try {
             const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -247,8 +244,9 @@ const API = {
 
             doc.querySelectorAll('a[href]').forEach(el => {
                 const href = el.getAttribute('href');
-                if (!href) return; // 防御空链接
+                if (!href) return;
                 el.setAttribute('href', fix(href, false));
+                // ✅ 确保 README 内的链接也强制新标签页
                 el.setAttribute('target', '_blank');
                 el.setAttribute('rel', 'noopener noreferrer');
                 el.classList.add('external-link');
@@ -358,34 +356,45 @@ const API = {
     }
 };
 
-// ✅ 新增：全局链接点击保护（IIFE 自执行，防止被其他脚本覆盖）
-// 解决 Vercel CSP 拦截 / 父级 click 事件 preventDefault 导致的链接失效问题
+// ✅ 全局链接点击保护：强制新标签页打开，阻止当前页跳转
 (function () {
     'use strict';
 
     function handleExternalLink(e) {
-        const link = e.target.closest('a.external-link, a[target="_blank"]');
+        // 匹配所有外部链接和带 target="_blank" 的链接
+        const link = e.target.closest('a.external-link, a[target="_blank"], a[href^="http"]');
         if (!link) return;
 
         const href = link.getAttribute('href');
         if (!href || href === '#' || href.startsWith('javascript:') || href.startsWith('mailto:')) return;
 
-        // 仅对 github 相关链接做特殊处理，避免影响站内导航
-        if (href.includes('github.com') || href.includes('raw.githubusercontent.com')) {
-            e.preventDefault();
-            e.stopPropagation();
+        // 只对站外链接做处理，避免影响站内导航
+        const isExternal = href.startsWith('http') && !href.includes(window.location.hostname);
+        if (!isExternal) return;
 
-            try {
-                const win = window.open(href, '_blank', 'noopener,noreferrer');
-                // 部分浏览器弹窗拦截器会返回 null 或立即关闭
-                if (!win || win.closed || typeof win.closed === 'undefined') {
-                    console.warn('⚠️ [LinkGuard] window.open 被拦截，回退到 location');
-                    window.location.href = href;
-                }
-            } catch (err) {
-                console.warn('⚠️ [LinkGuard] 打开链接异常:', err);
-                window.location.href = href;
+        // ✅ 核心：阻止默认跳转行为，强制新标签页打开
+        e.preventDefault();
+        e.stopPropagation();
+
+        try {
+            const win = window.open(href, '_blank', 'noopener,noreferrer');
+            // 部分浏览器弹窗拦截器会返回 null 或立即关闭
+            if (!win || win.closed || typeof win.closed === 'undefined') {
+                console.warn('⚠️ [LinkGuard] window.open 被拦截，尝试备用方案');
+                // 备用方案：创建临时 a 标签触发新标签页（绕过部分 CSP 限制）
+                const tempLink = document.createElement('a');
+                tempLink.href = href;
+                tempLink.target = '_blank';
+                tempLink.rel = 'noopener noreferrer';
+                tempLink.style.display = 'none';
+                document.body.appendChild(tempLink);
+                tempLink.click();
+                document.body.removeChild(tempLink);
             }
+        } catch (err) {
+            console.warn('⚠️ [LinkGuard] 打开链接异常:', err);
+            // 最终兜底：仍然尝试新标签页
+            window.open(href, '_blank');
         }
     }
 
