@@ -1,6 +1,6 @@
 /* =========================================
-   layout.css - 全局布局与响应式框架 (终极纯净版)
-   变量已严格对齐 variables.css，修复暗黑模式
+   layout.css - 全局布局与响应式框架 (最终校准版)
+   严格对齐 index.html 实际类名
    ========================================= */
 
 /* 1. 全局安全基线 */
@@ -18,8 +18,8 @@ html {
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: var(--bg-color); /* ✅ 修正：对齐 variables.css */
-  color: var(--text-primary);        /* ✅ 修正：对齐 variables.css */
+  background-color: var(--bg-color);
+  color: var(--text-primary);
   line-height: 1.6;
   overflow-wrap: break-word;
   word-break: break-word;
@@ -28,19 +28,8 @@ body {
   min-height: 100vh;
 }
 
-/* 2. 应用主容器 */
-.app-container, .container {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 16px;
-}
-
-/* 3. 粘性头部导航 */
-.app-header {
+/* 2. 头部导航 (对齐 HTML 中的 .header-wrap) */
+.header-wrap {
   position: sticky;
   top: 0;
   z-index: 100;
@@ -48,27 +37,91 @@ body {
   align-items: center;
   justify-content: space-between;
   height: var(--header-height, 60px);
-  background-color: var(--card-bg);  /* ✅ 修正：使用 card-bg */
+  background-color: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
-  margin: 0 -16px;
   padding: 0 16px;
 }
 
-.app-header .logo {
+.main-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--accent-color);        /* ✅ 修正：使用 accent-color */
-  text-decoration: none;
+  color: var(--accent-color);
   white-space: nowrap;
+  margin: 0 16px;
 }
 
-.header-actions {
+.header-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  margin-left: auto;
 }
 
-/* 4. 汉堡按钮与遮罩层 (全局只定义一次) */
+/* 3. 搜索栏与分类标签 */
+.search-wrap {
+  padding: 12px 16px;
+}
+
+.search-wrap input {
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-wrap input:focus {
+  border-color: var(--accent-color);
+}
+
+.tab-wrap {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tool-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 16px;
+  align-items: center;
+}
+
+/* 4. 历史面板 */
+.history-panel {
+  padding: 0 16px 16px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.history-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* ✅ 修复：强制历史项垂直排列 */
+.history-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* 5. 汉堡按钮与遮罩层 */
 .mobile-menu-btn {
   display: none;
   background: none;
@@ -80,7 +133,6 @@ body {
   min-width: 44px;
   align-items: center;
   justify-content: center;
-  margin-right: 8px;
   flex-shrink: 0;
 }
 
@@ -95,57 +147,71 @@ body {
   backdrop-filter: blur(2px);
 }
 
-/* 5. 主内容区域 */
-.main-content {
-  flex: 1;
-  padding: 24px 0;
-  width: 100%;
+/* 6. 主内容容器 (对齐 HTML 中的 .container) */
+.container {
   display: flex;
   gap: 24px;
+  padding: 0 16px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  flex: 1;
 }
 
-.view-section { display: block; }
-.view-section.hidden { display: none !important; }
-
-/* 6. 桌面端布局 (>= 769px) */
+/* 7. 桌面端布局 (>= 769px) */
 @media (min-width: 769px) {
-  .left-sidebar, .sidebar {
-    display: block;
-    width: 280px;
+  .left-sidebar {
+    width: 320px;
     flex-shrink: 0;
     position: sticky;
-    top: calc(var(--header-height, 60px) + 24px);
+    top: calc(var(--header-height, 60px) + 16px);
     height: fit-content;
-    max-height: calc(100vh - var(--header-height, 60px) - 48px);
+    max-height: calc(100vh - var(--header-height, 60px) - 32px);
     overflow-y: auto;
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    border: 1px solid var(--border-color);
   }
   
   .right-article {
     flex: 1;
     min-width: 0;
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    border: 1px solid var(--border-color);
+    position: relative;
   }
 }
 
-/* 7. 移动端抽屉布局 (<= 768px) */
+/* 8. 移动端抽屉布局 (<= 768px) */
 @media (max-width: 768px) {
-  .app-container, .container { padding: 0 12px; }
-  
-  .app-header {
-    margin: 0 -12px;
-    padding: 0 12px;
+  .header-wrap {
     height: 50px;
+    padding: 0 12px;
+  }
+
+  .main-title {
+    font-size: 1rem;
+    margin: 0 8px;
   }
 
   .mobile-menu-btn { display: inline-flex; }
   
-  .main-content {
+  .search-wrap, .tab-wrap, .tool-wrap, .history-panel {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .container {
     flex-direction: column;
-    padding: 16px 0;
+    padding: 0 12px 16px;
     gap: 0;
   }
 
-  /* 侧边栏抽屉 (同时兼容 .left-sidebar 和 .sidebar 类名) */
-  .left-sidebar, .sidebar {
+  /* 侧边栏抽屉 */
+  .left-sidebar {
     display: block !important;
     position: fixed !important;
     top: 0 !important;
@@ -153,17 +219,19 @@ body {
     bottom: 0 !important;
     width: 280px !important;
     max-width: 80vw !important;
-    background: var(--card-bg) !important;  /* ✅ 暗黑模式自动变深色 */
-    color: var(--text-primary) !important;  /* ✅ 暗黑模式自动变浅色 */
+    background: var(--card-bg) !important;
+    color: var(--text-primary) !important;
     z-index: 999 !important;
     transform: translateX(-100%) !important;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     padding: 60px 12px 12px !important;
     overflow-y: auto !important;
     box-shadow: var(--shadow-md) !important;
+    border: none !important;
+    border-radius: 0 !important;
   }
 
-  .left-sidebar.active, .sidebar.active {
+  .left-sidebar.active {
     transform: translateX(0) !important;
   }
 
@@ -175,11 +243,15 @@ body {
   .right-article {
     width: 100% !important;
     margin-left: 0 !important;
-    padding: 10px 0 !important;
+    padding: 16px !important;
+    background: var(--card-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    position: relative;
   }
 }
 
-/* 8. 工具类 */
+/* 9. 工具类 */
 .hidden { display: none !important; }
 .sr-only { 
   position: absolute; width: 1px; height: 1px; 
