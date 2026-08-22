@@ -200,7 +200,7 @@
     var themeBtn = $('#themeBtn');
     if (themeBtn) {
       themeBtn.addEventListener('click', function () {
-        var isDark = document.body.classList.toggle('dark');
+        var isDark = document.documentElement.classList.toggle('dark');
         this.textContent = isDark ? '切换亮色模式' : '切换暗黑模式';
         Store.setTheme(isDark ? 'dark' : 'light');
       });
@@ -429,7 +429,7 @@
   function initTheme() {
     var theme = Store.getTheme ? Store.getTheme() : 'light';
     var isDark = theme === 'dark';
-    document.body.classList.toggle('dark', isDark);
+    document.documentElement.classList.toggle('dark', isDark);
     var themeBtn = $('#themeBtn');
     if (themeBtn) {
       themeBtn.textContent = isDark ? '切换亮色模式' : '切换暗黑模式';
