@@ -283,17 +283,18 @@ pre, code, table, .highlight, .markdown-body pre, .markdown-body table {
   width: 100% !important;
 }
 
-/* 5. 移动端专属强制覆盖 (屏幕宽度 < 768px) */
+/* 5. 移动端专属强制覆盖 (屏幕宽度 < 768px) - 已修复冲突 */
 @media screen and (max-width: 768px) {
-  /* 强制所有网格布局变为单列 */
-  [class*="grid"], .issue-list, .article-list, .card-list {
-    display: flex !important;
-    flex-direction: column !important;
-    grid-template-columns: 1fr !important;
-  }
+  /* ✅ 修复1: 不再误杀 .left-sidebar 抽屉 */
+  aside:not(.left-sidebar):not(.sidebar), 
+[class*="sidebar"]:not(.left-sidebar):not(.sidebar) { 
+  display: none !important; 
+}
 
-  /* 强制卡片/容器减小内边距，释放屏幕空间 */
-  [class*="card"], [class*="container"], [class*="wrapper"], article, section {
+  /* ✅ 修复2: 不再暴力覆盖 .container 主布局容器 */
+  [class*="card"]:not(.container), 
+  [class*="wrapper"]:not(.container), 
+  article, section {
     padding: 12px !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
@@ -301,25 +302,24 @@ pre, code, table, .highlight, .markdown-body pre, .markdown-body table {
     border-radius: 8px !important;
   }
 
-  /* 强制隐藏桌面端专属的复杂侧边栏 (防止挤占主屏幕) */
-    /* ✅ 修复：不再误杀 .left-sidebar 抽屉，只隐藏真正的桌面侧边栏 */
-  aside:not(.left-sidebar), 
-  .sidebar:not(.left-sidebar), 
-  [class*="sidebar"]:not(.left-sidebar) {
-    display: none !important; 
+  /* 强制所有网格布局变为单列 */
+  [class*="grid"], .issue-list, .article-list, .card-list {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
   }
 
-  /* 优化触摸目标 (确保按钮和链接在手机上容易点击) */
+  /* 优化触摸目标 */
   a, button, input, select, textarea, [role="button"] {
     min-height: 44px !important;
     min-width: 44px !important;
-    touch-action: manipulation !important; /* 消除 iOS 300ms 点击延迟 */
+    touch-action: manipulation !important;
   }
 
   /* 强制输入框不撑破屏幕 */
   input, select, textarea {
     width: 100% !important;
-    font-size: 16px !important; /* 防止 iOS 聚焦时自动缩放页面 */
+    font-size: 16px !important;
   }
 
   /* 强制头部导航紧凑显示 */
