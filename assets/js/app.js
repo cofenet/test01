@@ -1,41 +1,52 @@
 /**
- * app.js - 核心控制层
- * 串联 API / Store / Render，处理所有用户交互
- * 适配旧版 window.API 接口风格
+ * app.js - 核心控制层 (事件委托与状态修复版)
  */
-
 (function () {
   'use strict';
 
-  // ========== 状态 ==========
-  var allArticles = [];       // 全量文章
-  var currentCat = 'all';     // 当前分类
-  var searchKeyword = '';     // 搜索关键词
-  var focusMode = false;      // 专注模式
-  var currentArticle = null;  // 当前阅读的文章
+  var allArticles = [];
+  var currentCat = 'all';
+  var searchKeyword = '';
+  var focusMode = false;
+  var currentArticle = null;
 
-  // ========== DOM 引用 ==========
   var $ = function (sel) { return document.querySelector(sel); };
   var $$ = function (sel) { return document.querySelectorAll(sel); };
 
-  // ========== 初始化 ==========
   document.addEventListener('DOMContentLoaded', function () {
     initTheme();
     bindEvents();
-    loadArticles('python');  // 默认加载科技类
+    loadArticles('python');
     loadWeather();
     Render.renderHistory();
     Render.updateStat();
     initMobileSidebar();
   });
 
-  // ========== 数据加载 ==========
+  // ========== 移动端抽屉初始化 ==========
+  function initMobileSidebar() {
+    var menuBtn = $('#mobileMenuBtn');
+    var sidebar = $('.left-sidebar');
+    var overlay = $('#sidebarOverlay');
 
+    if (!menuBtn || !sidebar || !overlay) return;
+
+    menuBtn.addEventListener('click', function () {
+      sidebar.classList.add('active');
+      overlay.classList.add('active');
+    });
+
+    overlay.addEventListener('click', function () {
+      sidebar.classList.remove('active');
+      overlay.classList.remove('active');
+    });
+  }
+
+  // ========== 数据加载 ==========
   function loadArticles(category) {
     var cat = category || currentCat || 'tech';
     showLoading(true);
 
-    // 调用旧版 API（大写）
     var promise = (typeof API !== 'undefined' && API.fetchArticles)
       ? API.fetchArticles(cat)
       : Promise.resolve([]);
@@ -53,24 +64,19 @@
   }
 
   function loadWeather() {
-    // 旧版 API 没有天气方法，直接 fetch 代理
     fetch('/api/proxy?target=weather&city=' + encodeURIComponent('北京'))
       .then(function (res) { return res.text(); })
       .then(function (text) {
         var el = $('#weatherText');
         if (el && text) el.textContent = text;
       })
-      .catch(function () {
-        // 静默失败
-      });
+      .catch(function () {});
   }
 
   // ========== 视图刷新 ==========
-
   function getFilteredArticles() {
     var list = allArticles;
 
-    // 分类过滤
     if (currentCat === 'star') {
       list = list.filter(function (a) { return Store.isStar(a.id); });
     } else if (currentCat === 'unread') {
@@ -79,7 +85,6 @@
       list = list.filter(function (a) { return a.category === currentCat; });
     }
 
-    // 搜索过滤
     if (searchKeyword) {
       var kw = searchKeyword.toLowerCase();
       list = list.filter(function (a) {
@@ -95,13 +100,18 @@
     var filtered = getFilteredArticles();
     Render.renderList(filtered);
     Render.updateStat(filtered);
-    Render.updateStat();
+    
+    // 重新高亮当前文章
+    if (currentArticle) {
+      $$('#listBox .list-item').forEach(function (el) {
+        el.classList.toggle('active', el.getAttribute('data-id') === String(currentArticle.id));
+      });
+    }
   }
 
   // ========== 事件绑定 ==========
-
   function bindEvents() {
-    // --- 搜索 ---
+    // 搜索
     var searchInput = $('#searchInput');
     if (searchInput) {
       var searchTimer;
@@ -115,7 +125,7 @@
       });
     }
 
-    // --- Tab 切换 ---
+    // Tab 切换
     $$('.tab-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
         $$('.tab-btn').forEach(function (b) {
@@ -126,26 +136,19 @@
         this.setAttribute('aria-selected', 'true');
         var newCat = this.getAttribute('data-cat');
 
-        // 特殊 Tab（收藏/未读）不需要重新拉取数据
         if (newCat === 'star' || newCat === 'unread' || newCat === 'all') {
           currentCat = newCat;
           refreshView();
         } else {
-          // 分类 Tab（tech/sport）需要重新拉取
           currentCat = newCat;
           loadArticles(newCat);
         }
       });
     });
 
-    // --- 工具栏按钮 ---
+    // 工具栏
     var refreshBtn = $('#refreshBtn');
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', function () {
-        toast('正在刷新...');
-        loadArticles(currentCat);
-      });
-    }
+    if (refreshBtn) refreshBtn.addEventListener('click', function () { toast('正在刷新...'); loadArticles(currentCat); });
 
     var focusModeBtn = $('#focusModeBtn');
     if (focusModeBtn) {
@@ -158,69 +161,49 @@
     }
 
     var markAllRead = $('#markAllRead');
-    if (markAllRead) {
-      markAllRead.addEventListener('click', function () {
-        var filtered = getFilteredArticles();
-        filtered.forEach(function (a) { Store.markRead(a.id); });
-        refreshView();
-        toast('已将 ' + filtered.length + ' 篇标为已读');
-      });
-    }
+    if (markAllRead) markAllRead.addEventListener('click', function () {
+      getFilteredArticles().forEach(function (a) { Store.markRead(a.id); });
+      refreshView(); toast('已将当前列表标为已读');
+    });
 
     var clearAllRead = $('#clearAllRead');
-    if (clearAllRead) {
-      clearAllRead.addEventListener('click', function () {
-        Store.clearAllRead();
-        refreshView();
-        toast('已清除所有已读标记');
-      });
-    }
+    if (clearAllRead) clearAllRead.addEventListener('click', function () { Store.clearAllRead(); refreshView(); toast('已清除所有已读标记'); });
 
     var clearAllStar = $('#clearAllStar');
-    if (clearAllStar) {
-      clearAllStar.addEventListener('click', function () {
-        if (!confirm('确定清空所有收藏吗？')) return;
-        Store.clearAllStar();
-        refreshView();
-        toast('已清空所有收藏');
-      });
-    }
+    if (clearAllStar) clearAllStar.addEventListener('click', function () {
+      if (!confirm('确定清空所有收藏吗？')) return;
+      Store.clearAllStar(); refreshView(); toast('已清空所有收藏');
+    });
 
-    // --- 字号调节 ---
+    // 字号
     $$('.font-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
         $$('.font-btn').forEach(function (b) { b.classList.remove('active'); });
         this.classList.add('active');
-        var size = this.getAttribute('data-root');
-        document.documentElement.style.fontSize = size + 'px';
-        Store.setFontSize(size);
+        document.documentElement.style.fontSize = this.getAttribute('data-root') + 'px';
+        Store.setFontSize(this.getAttribute('data-root'));
       });
     });
 
-    // --- 主题切换 ---
+    // 主题切换
     var themeBtn = $('#themeBtn');
     if (themeBtn) {
       themeBtn.addEventListener('click', function () {
-        var currentTheme = document.documentElement.getAttribute('data-theme');
-        var isDark = currentTheme !== 'dark';
+        var isDark = document.documentElement.getAttribute('data-theme') !== 'dark';
         document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
         this.textContent = isDark ? '切换亮色模式' : '切换暗黑模式';
         Store.setTheme(isDark ? 'dark' : 'light');
       });
     }
 
-    // --- 清空历史 ---
+    // 清空历史
     var clearHistoryAll = $('#clearHistoryAll');
-    if (clearHistoryAll) {
-      clearHistoryAll.addEventListener('click', function () {
-        if (!confirm('确定清空所有浏览历史吗？')) return;
-        Store.clearHistory();
-        Render.renderHistory();
-        toast('历史已清空');
-      });
-    }
+    if (clearHistoryAll) clearHistoryAll.addEventListener('click', function () {
+      if (!confirm('确定清空所有浏览历史吗？')) return;
+      Store.clearHistory(); Render.renderHistory(); toast('历史已清空');
+    });
 
-    // --- 文章列表点击（事件委托）---
+    // ✅ 文章列表点击（事件委托 - 修复版）
     var listBox = $('#listBox');
     if (listBox) {
       listBox.addEventListener('click', function (e) {
@@ -230,7 +213,6 @@
           e.stopPropagation();
           var id = starBtn.getAttribute('data-star');
           var isStarred = Store.toggleStar(id);
-          starBtn.classList.toggle('active', isStarred);
           starBtn.textContent = isStarred ? '⭐' : '☆';
           refreshView();
           toast(isStarred ? '已收藏' : '已取消收藏');
@@ -240,13 +222,12 @@
         // 文章项点击
         var item = e.target.closest('.list-item');
         if (item) {
-          var articleId = item.getAttribute('data-id');
-          openArticle(articleId);
+          openArticle(item.getAttribute('data-id'));
         }
       });
     }
 
-    // --- 文章详情操作（事件委托）---
+    // 文章详情操作
     var detailBox = $('#detailBox');
     if (detailBox) {
       detailBox.addEventListener('click', function (e) {
@@ -254,71 +235,53 @@
         if (!actionBtn || !currentArticle) return;
 
         var action = actionBtn.getAttribute('data-action');
-
         if (action === 'toggle-read') {
           var isRead = Store.toggleRead(currentArticle.id);
           actionBtn.textContent = isRead ? '📖 标为未读' : '👁️ 标为已读';
-          refreshView();
-          toast(isRead ? '已标为已读' : '已标为未读');
+          refreshView(); toast(isRead ? '已标为已读' : '已标为未读');
         }
-
         if (action === 'toggle-star') {
           var starred = Store.toggleStar(currentArticle.id);
           actionBtn.textContent = starred ? '💔 取消收藏' : '⭐ 收藏文章';
-          refreshView();
-          toast(starred ? '已收藏' : '已取消收藏');
+          refreshView(); toast(starred ? '已收藏' : '已取消收藏');
         }
       });
 
-      // 阅读进度条
       detailBox.addEventListener('scroll', function () {
-        var el = this;
-        var scrollTop = el.scrollTop;
-        var scrollHeight = el.scrollHeight - el.clientHeight;
+        var scrollTop = this.scrollTop;
+        var scrollHeight = this.scrollHeight - this.clientHeight;
         var progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
         var bar = $('#progressBar');
         if (bar) bar.style.width = Math.min(progress, 100) + '%';
       });
     }
 
-    // --- 浏览历史点击 ---
+    // 历史记录点击
     var historyItems = $('#historyItems');
     if (historyItems) {
       historyItems.addEventListener('click', function (e) {
         var item = e.target.closest('[data-hid]');
-        if (item) {
-          openArticle(item.getAttribute('data-hid'));
-        }
+        if (item) openArticle(item.getAttribute('data-hid'));
       });
     }
 
-    // --- 回到顶部 ---
+    // 回到顶部
     var backTop = $('#backTop');
-    if (backTop) {
-      backTop.addEventListener('click', function () {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-    }
+    if (backTop) backTop.addEventListener('click', function () { window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
     var listBackTop = $('#listBackTop');
-    if (listBackTop) {
-      listBackTop.addEventListener('click', function () {
-        var wrap = $('#listScrollWrap');
-        if (wrap) wrap.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-    }
+    if (listBackTop) listBackTop.addEventListener('click', function () {
+      var wrap = $('#listScrollWrap');
+      if (wrap) wrap.scrollTo({ top: 0, behavior: 'smooth' });
+    });
 
-    // --- 全局滚动显示回到顶部按钮 ---
     window.addEventListener('scroll', function () {
       var btn = $('#backTop');
-      if (btn) {
-        btn.style.display = window.scrollY > 400 ? 'block' : 'none';
-      }
+      if (btn) btn.style.display = window.scrollY > 400 ? 'flex' : 'none';
     });
   }
 
   // ========== 打开文章 ==========
-
   function openArticle(id) {
     var article = null;
     for (var i = 0; i < allArticles.length; i++) {
@@ -329,90 +292,71 @@
     }
 
     if (!article) {
-      toast('文章不存在');
+      console.warn('[openArticle] 未找到文章:', id, '当前列表长度:', allArticles.length);
+      toast('文章不存在或尚未加载');
       return;
     }
 
     currentArticle = article;
-
-    // 标记已读
     Store.markRead(article.id);
-
-    // 记录历史
     Store.addHistory({ id: article.id, title: article.title });
     Render.renderHistory();
-
-    // 渲染详情基本信息
     Render.renderDetail(article);
 
-    // 高亮列表项
+    // 高亮当前项
     $$('#listBox .list-item').forEach(function (el) {
-      el.classList.toggle('current', el.getAttribute('data-id') === String(id));
+      el.classList.toggle('active', el.getAttribute('data-id') === String(id));
     });
 
-    // 加载 README（适配旧版 API.fetchReadme）
     loadReadme(article);
-
-    // 刷新统计（因为标记了已读）
     refreshView();
+
+    // 移动端自动关闭抽屉
+    var sidebar = $('.left-sidebar');
+    var overlay = $('#sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
   }
 
-  /**
-   * 加载 README（适配旧版 API.fetchReadme 接口）
-   * 旧版返回 { ok: true, html: string } 或 { ok: false, reason: string, message: string }
-   */
   function loadReadme(article) {
     var detailBox = $('#detailBox');
-
-    // 旧版 API 使用 title 作为 fullName（即 "owner/repo"）
     var fullName = article.title || '';
-    if (!fullName || fullName.indexOf('/') === -1) {
-      // 没有 GitHub 仓库信息，跳过 README 加载
-      return;
-    }
+    if (!fullName || fullName.indexOf('/') === -1) return;
 
-    // 已缓存则直接使用
     if (article._readmeLoaded && article._readmeHtml) {
       if (detailBox) {
         detailBox.insertAdjacentHTML('beforeend',
-          '<hr style="border:0;border-top:1px solid var(--border-color,#30363d);margin:24px 0;">' +
+          '<hr style="border:0;border-top:1px solid var(--border-color);margin:24px 0;">' +
           '<div class="markdown-body">' + article._readmeHtml + '</div>'
         );
       }
       return;
     }
 
-    // 显示加载提示
     if (detailBox) {
       detailBox.insertAdjacentHTML('beforeend',
-        '<div id="readmeLoading" style="padding:24px;text-align:center;color:#888;">📖 正在加载 README...</div>'
+        '<div id="readmeLoading" style="padding:24px;text-align:center;color:var(--text-secondary);">📖 正在加载 README...</div>'
       );
     }
 
-    // 调用旧版 API
+    if (typeof API === 'undefined' || !API.fetchReadme) return;
+
     API.fetchReadme(fullName).then(function (result) {
       var loader = $('#readmeLoading');
       if (loader) loader.remove();
-
       if (!detailBox) return;
 
       if (result.ok && result.html) {
-        // 成功
         article._readmeLoaded = true;
         article._readmeHtml = result.html;
-
         detailBox.insertAdjacentHTML('beforeend',
-          '<hr style="border:0;border-top:1px solid var(--border-color,#30363d);margin:24px 0;">' +
+          '<hr style="border:0;border-top:1px solid var(--border-color);margin:24px 0;">' +
           '<div class="markdown-body">' + result.html + '</div>'
         );
       } else {
-        // 失败
-        var reason = result.reason || 'error';
         var msg = result.message || 'README 加载失败';
-        var icon = reason === 'no-readme' ? '📭' : reason === 'rate-limit' ? '⏳' : '⚠️';
-
         detailBox.insertAdjacentHTML('beforeend',
-          '<div style="padding:24px;text-align:center;color:#888;">' + icon + ' ' + msg + '</div>'
+          '<div style="padding:24px;text-align:center;color:var(--text-secondary);">⚠️ ' + msg + '</div>'
         );
       }
     }).catch(function (err) {
@@ -423,7 +367,6 @@
   }
 
   // ========== 辅助函数 ==========
-
   function showLoading(show) {
     var el = $('#listLoading');
     if (el) el.style.display = show ? 'block' : 'none';
@@ -432,16 +375,10 @@
   function initTheme() {
     var theme = Store.getTheme ? Store.getTheme() : 'light';
     var isDark = theme === 'dark';
-    // 改前
-document.documentElement.classList.toggle('dark', isDark);
-// 改后
-document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     var themeBtn = $('#themeBtn');
-    if (themeBtn) {
-      themeBtn.textContent = isDark ? '切换亮色模式' : '切换暗黑模式';
-    }
+    if (themeBtn) themeBtn.textContent = isDark ? '切换亮色模式' : '切换暗黑模式';
 
-    // 恢复字号
     var fontSize = Store.getFontSize ? Store.getFontSize() : '16';
     document.documentElement.style.fontSize = fontSize + 'px';
     $$('.font-btn').forEach(function (btn) {
@@ -455,9 +392,6 @@ document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     el.textContent = msg;
     el.classList.add('show');
     clearTimeout(el._timer);
-    el._timer = setTimeout(function () {
-      el.classList.remove('show');
-    }, 2000);
+    el._timer = setTimeout(function () { el.classList.remove('show'); }, 2000);
   }
-
 })();
