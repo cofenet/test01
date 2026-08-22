@@ -66,13 +66,11 @@
     align-items: center;
     margin-bottom: 8px;
 }
-
 .history-title {
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-secondary);
 }
-
 .history-clear-btn {
     background: none;
     border: none;
@@ -87,49 +85,100 @@
     color: #ef4444;
     background: rgba(239, 68, 68, 0.1);
 }
-
-/* ✅ 关键：改为横向滚动容器 */
 .history-items {
     display: flex !important;
-    flex-direction: row !important;      /* 横排 */
-    flex-wrap: nowrap !important;        /* 不换行 */
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     gap: 8px !important;
-    overflow-x: auto !important;         /* 超出横向滚动 */
+    overflow-x: auto !important;
     overflow-y: hidden !important;
     max-height: none !important;
-    padding: 2px 0 !important;           /* 给滚动条留空间 */
+    padding: 2px 0 !important;
     margin: 0 !important;
     -webkit-overflow-scrolling: touch;
 }
-
-/* 隐藏滚动条但保留功能 */
-.history-items::-webkit-scrollbar {
-    height: 4px;
-}
+.history-items::-webkit-scrollbar { height: 4px; }
 .history-items::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: 2px;
 }
-
 .history-item {
-    flex-shrink: 0 !important;           /* ✅ 防止被压缩 */
+    flex-shrink: 0 !important;
     padding: 6px 14px !important;
     background: var(--card-bg) !important;
-    border-radius: 20px !important;      /* 胶囊形状 */
+    border-radius: 20px !important;
     font-size: 0.8rem !important;
     font-weight: 500 !important;
-    color: var(--text-primary) !important; /* ✅ 主文本色，确保可见 */
+    color: var(--text-primary) !important;
     cursor: pointer !important;
-    white-space: nowrap !important;      /* 文字不换行 */
+    white-space: nowrap !important;
     border: 1px solid var(--border-color) !important;
     transition: all 0.2s ease !important;
     line-height: 1.4 !important;
 }
-
 .history-item:hover {
     color: var(--accent-color) !important;
     border-color: var(--accent-color) !important;
     background: var(--bg-color) !important;
+}
+
+/* ✅ News Item - 图标右置 + 单行省略 (新增) */
+.news-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+    border-radius: var(--radius-sm) !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    border: 1px solid transparent !important;
+}
+.news-item:hover {
+    background: var(--bg-color) !important;
+    border-color: var(--border-color) !important;
+}
+.news-title {
+    flex: 1 !important;
+    min-width: 0 !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    color: var(--text-primary) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    line-height: 1.4 !important;
+    order: 1 !important;
+}
+.news-read-marker {
+    flex-shrink: 0 !important;
+    width: 6px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: var(--accent-color) !important;
+    order: 2 !important;
+}
+.news-item.read .news-read-marker {
+    background: var(--border-color) !important;
+    opacity: 0.5 !important;
+}
+.news-fav-btn {
+    flex-shrink: 0 !important;
+    background: none !important;
+    border: none !important;
+    cursor: pointer !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    color: var(--text-secondary) !important;
+    transition: all 0.2s ease !important;
+    padding: 2px !important;
+    order: 3 !important;
+}
+.news-fav-btn:hover {
+    color: #f59e0b !important;
+    transform: scale(1.2) !important;
+}
+.news-fav-btn.active {
+    color: #f59e0b !important;
 }
 
 /* Sidebar Stat & Title */
@@ -143,7 +192,7 @@
     border-bottom: 1px solid var(--border-color);
 }
 
-/* ✅ List Items (与 render.js 输出完全对齐) */
+/* List Items (保留用于其他列表场景) */
 .list-item {
     padding: 12px 14px; border-radius: var(--radius-sm);
     cursor: pointer; transition: all 0.2s;
@@ -153,7 +202,6 @@
 .list-item:hover { background: var(--bg-color); }
 .list-item.active { background: var(--accent-color); color: #fff; }
 .list-item.active .item-meta { color: rgba(255,255,255,0.8); }
-
 .item-title {
     font-size: 0.95rem; font-weight: 500; margin-bottom: 4px;
     display: -webkit-box; -webkit-line-clamp: 2;
@@ -169,7 +217,6 @@
     border-radius: 50%; background: var(--accent-color);
 }
 .list-item.read .read-marker { display: none; }
-
 .list-loading {
     text-align: center; padding: 24px;
     color: var(--text-secondary); font-size: 0.9rem; display: none;
@@ -225,7 +272,7 @@
 
 /* Mobile */
 @media (max-width: 768px) {
-  .weather-box { display: none; }
-  #backTop { bottom: 20px; right: 20px; width: 40px; height: 40px; }
-  .article-title { font-size: 1.25rem; }
+    .weather-box { display: none; }
+    #backTop { bottom: 20px; right: 20px; width: 40px; height: 40px; }
+    .article-title { font-size: 1.25rem; }
 }
