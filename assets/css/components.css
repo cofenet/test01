@@ -302,7 +302,10 @@ pre, code, table, .highlight, .markdown-body pre, .markdown-body table {
   }
 
   /* 强制隐藏桌面端专属的复杂侧边栏 (防止挤占主屏幕) */
-  aside, .sidebar, [class*="sidebar"] {
+    /* ✅ 修复：不再误杀 .left-sidebar 抽屉，只隐藏真正的桌面侧边栏 */
+  aside:not(.left-sidebar), 
+  .sidebar:not(.left-sidebar), 
+  [class*="sidebar"]:not(.left-sidebar) {
     display: none !important; 
   }
 
