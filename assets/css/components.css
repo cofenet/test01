@@ -59,20 +59,78 @@
     background: var(--accent-color); color: #fff; border-color: var(--accent-color);
 }
 
-/* History */
+/* History - 横排单行显示 */
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.history-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
 .history-clear-btn {
-    background: none; border: none; color: var(--text-secondary);
-    cursor: pointer; font-size: 0.8rem;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
 }
-.history-clear-btn:hover { color: #ef4444; }
+.history-clear-btn:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* ✅ 关键：改为横向滚动容器 */
+.history-items {
+    display: flex !important;
+    flex-direction: row !important;      /* 横排 */
+    flex-wrap: nowrap !important;        /* 不换行 */
+    gap: 8px !important;
+    overflow-x: auto !important;         /* 超出横向滚动 */
+    overflow-y: hidden !important;
+    max-height: none !important;
+    padding: 2px 0 !important;           /* 给滚动条留空间 */
+    margin: 0 !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 隐藏滚动条但保留功能 */
+.history-items::-webkit-scrollbar {
+    height: 4px;
+}
+.history-items::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 2px;
+}
+
 .history-item {
-    padding: 8px 12px; background: var(--bg-color);
-    border-radius: var(--radius-sm); font-size: 0.8rem;
-    color: var(--text-secondary); cursor: pointer;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    transition: all 0.2s; border: 1px solid var(--border-color);
+    flex-shrink: 0 !important;           /* ✅ 防止被压缩 */
+    padding: 6px 14px !important;
+    background: var(--card-bg) !important;
+    border-radius: 20px !important;      /* 胶囊形状 */
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+    color: var(--text-primary) !important; /* ✅ 主文本色，确保可见 */
+    cursor: pointer !important;
+    white-space: nowrap !important;      /* 文字不换行 */
+    border: 1px solid var(--border-color) !important;
+    transition: all 0.2s ease !important;
+    line-height: 1.4 !important;
 }
-.history-item:hover { color: var(--accent-color); background: var(--border-color); }
+
+.history-item:hover {
+    color: var(--accent-color) !important;
+    border-color: var(--accent-color) !important;
+    background: var(--bg-color) !important;
+}
 
 /* Sidebar Stat & Title */
 .sidebar-title {
