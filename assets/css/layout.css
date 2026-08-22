@@ -1,5 +1,5 @@
 /* =========================================
-   layout.css - 全局布局与响应式框架 (最终校准版)
+   layout.css - 全局布局与响应式框架 (左对齐终版)
    严格对齐 index.html 实际类名
    ========================================= */
 
@@ -28,7 +28,7 @@ body {
   min-height: 100vh;
 }
 
-/* 2. 头部导航 (对齐 HTML 中的 .header-wrap) */
+/* 2. 头部导航 */
 .header-wrap {
   position: sticky;
   top: 0;
@@ -39,7 +39,7 @@ body {
   height: var(--header-height, 60px);
   background-color: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
-  padding: 0 16px;
+  padding: 0 24px; /* ✅ 统一为24px */
 }
 
 .main-title {
@@ -59,7 +59,7 @@ body {
 
 /* 3. 搜索栏与分类标签 */
 .search-wrap {
-  padding: 12px 16px;
+  padding: 12px 24px; /* ✅ 统一为24px */
 }
 
 .search-wrap input {
@@ -81,7 +81,7 @@ body {
 .tab-wrap {
   display: flex;
   gap: 8px;
-  padding: 0 16px 12px;
+  padding: 0 24px 12px; /* ✅ 统一为24px */
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -90,13 +90,13 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 0 16px 16px;
+  padding: 0 24px 16px; /* ✅ 统一为24px */
   align-items: center;
 }
 
 /* 4. 历史面板 */
 .history-panel {
-  padding: 0 16px 16px;
+  padding: 0 24px 16px; /* ✅ 统一为24px */
 }
 
 .history-header {
@@ -112,7 +112,7 @@ body {
   color: var(--text-secondary);
 }
 
-/* ✅ 修复：强制历史项垂直排列 */
+/* ✅ 强制历史项垂直排列 */
 .history-items {
   display: flex;
   flex-direction: column;
@@ -147,12 +147,12 @@ body {
   backdrop-filter: blur(2px);
 }
 
-/* 6. 主内容容器 (对齐 HTML 中的 .container) */
+/* 6. 主内容容器 */
 .container {
   display: flex;
   gap: 24px;
-  padding: 0 16px 24px;
-  max-width: 1200px;
+  padding: 0 24px 24px;
+  max-width: 1400px;
   margin: 0 auto;
   width: 100%;
   flex: 1;
@@ -160,6 +160,18 @@ body {
 
 /* 7. 桌面端布局 (>= 769px) */
 @media (min-width: 769px) {
+  /* ✅ 关键修复：让外层全宽元素与 .container 内部左对齐 */
+  .header-wrap,
+  .search-wrap,
+  .tab-wrap,
+  .tool-wrap,
+  .history-panel {
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+  }
+
   .left-sidebar {
     width: 320px;
     flex-shrink: 0;
@@ -202,6 +214,8 @@ body {
   .search-wrap, .tab-wrap, .tool-wrap, .history-panel {
     padding-left: 12px;
     padding-right: 12px;
+    max-width: none; /* 移动端取消最大宽度限制 */
+    margin: 0;
   }
 
   .container {
