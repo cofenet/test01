@@ -150,7 +150,7 @@
     if (focusModeBtn) {
       focusModeBtn.addEventListener('click', function () {
         focusMode = !focusMode;
-        document.body.classList.toggle('focus-mode', focusMode);
+        document.documentElement.classList.toggle('focus-mode', focusMode);
         this.textContent = focusMode ? '📖 退出专注' : '🎯 专注阅读';
         toast(focusMode ? '已进入专注阅读模式' : '已退出专注模式');
       });
