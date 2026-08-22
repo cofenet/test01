@@ -22,7 +22,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     initTheme();
     bindEvents();
-    loadArticles('tech');  // 默认加载科技类
+    loadArticles('python');  // 默认加载科技类
     loadWeather();
     Render.renderHistory();
     Render.updateStat();

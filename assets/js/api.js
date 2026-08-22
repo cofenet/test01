@@ -8,7 +8,12 @@ const API = {
     // 每个分类可配置多条查询（分别请求后合并，避免使用 OR 语法触发 422）
     queryMap: {
         'tech': ['topic:artificial-intelligence stars:>1000', 'topic:llm stars:>1000'],
-        'sport': ['sports stars:>500'],
+        // ✅ 新增：Python 开发编程热点（替代原 sport）
+    'python': [
+        'language:python topic:web-development stars:>500',
+        'language:python topic:data-science stars:>500',
+        'language:python topic:automation stars:>300'
+    ],
         'all': ['stars:>1000']
     },
 
