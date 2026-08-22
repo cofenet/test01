@@ -1,6 +1,6 @@
 /**
  * api.js - 数据请求层（整合列表缓存 + 静默刷新版）
- * 修复：右侧 Base64 乱码 + 恢复完整列表数据获取逻辑 + 新增列表级 localStorage 缓存
+ * 修复：右侧链接不可用 + Base64 乱码 + 完整列表缓存 + 全局链接点击保护
  */
 const API = {
     baseUrl: 'https://api.github.com/search/repositories',
@@ -8,7 +8,6 @@ const API = {
     // 每个分类可配置多条查询（分别请求后合并，避免使用 OR 语法触发 422）
     queryMap: {
         'tech': ['topic:artificial-intelligence stars:>1000', 'topic:llm stars:>1000'],
-        // ✅ Python 开发编程热点
         'python': [
             'language:python topic:web-development stars:>500',
             'language:python topic:data-science stars:>500',
@@ -17,9 +16,9 @@ const API = {
         'all': ['stars:>1000']
     },
 
-    // ========== 🆕 列表缓存配置 ==========
+    // ========== 列表缓存配置 ==========
     _listCachePrefix: 'gh_list_cache::',
-    _listCacheTTL: 30 * 60 * 1000, // 缓存有效期：30分钟
+    _listCacheTTL: 24 * 60 * 60 * 1000, // 24小时
 
     _listCacheKey(category) {
         return this._listCachePrefix + category;
@@ -30,13 +29,11 @@ const API = {
             const raw = localStorage.getItem(this._listCacheKey(category));
             if (!raw) return null;
             const obj = JSON.parse(raw);
-            // 未过期才返回
             if (Date.now() - obj.ts > this._listCacheTTL) return null;
             return obj.articles;
         } catch (e) { return null; }
     },
 
-    // 获取过期缓存（用于网络失败时的降级展示）
     _getStaleList(category) {
         try {
             const raw = localStorage.getItem(this._listCacheKey(category));
@@ -58,22 +55,18 @@ const API = {
     },
 
     // ========== 基础请求封装（强制走 Vercel 代理） ==========
-    
     async _proxyFetch(targetUrl, options = {}) {
         const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
         console.log(`📡 [API] 发起代理请求: ${targetUrl}`);
-        
         const res = await fetch(proxyUrl, options);
         console.log(`📡 [API] 代理响应状态码: ${res.status} (${targetUrl})`);
         return res;
     },
 
     // ========== 文章列表获取 ==========
-
     async _search(query) {
         const url = `${this.baseUrl}?q=${encodeURIComponent(query)}&sort=updated&order=desc&per_page=15`;
         const res = await this._proxyFetch(url);
-        
         if (!res.ok) throw new Error(`GitHub API 响应异常: ${res.status}`);
         const json = await res.json();
         if (!json.items || !Array.isArray(json.items)) {
@@ -83,7 +76,7 @@ const API = {
         return json.items;
     },
 
-    // 🆕 提取数据处理逻辑（去重、排序、格式化），供 fetchArticles 和 _silentRefresh 复用
+    // ✅ 修复：增加链接兜底 + 保存 url 字段 + 增强 a 标签属性
     _processItems(merged, category) {
         const seen = new Set();
         const unique = merged.filter(item => {
@@ -95,30 +88,34 @@ const API = {
         unique.sort((a, b) => b.stargazers_count - a.stargazers_count);
         const top = unique.slice(0, 20);
 
-        return top.map(item => ({
-            id: String(item.id),
-            title: item.full_name,
-            source: 'GitHub 开源热榜',
-            date: item.updated_at ? item.updated_at.split('T')[0] : '未知',
-            hot: `⭐ ${item.stargazers_count.toLocaleString()}`,
-            category: category,
-            content: `
-                <p><strong>📝 简介：</strong>${item.description || '暂无简介'}</p>
-                <p><strong>🌐 语言：</strong>${item.language || '未知'} | <strong>🔗 链接：</strong>
-                <a href="${item.html_url}" target="_blank" rel="noopener">${item.full_name}</a></p>
-                <p style="color:var(--text-secondary);font-size:0.9rem;margin-top:12px;">
-                ⭐ 星标：${item.stargazers_count.toLocaleString()} | 最后更新：${item.updated_at ? item.updated_at.split('T')[0] : '未知'}
-                </p>`
-        }));
+        return top.map(item => {
+            // 核心修复：防止 html_url 为 undefined/null 导致链接失效
+            const repoUrl = item.html_url || `https://github.com/${item.full_name}`;
+
+            return {
+                id: String(item.id),
+                title: item.full_name,
+                source: 'GitHub 开源热榜',
+                date: item.updated_at ? item.updated_at.split('T')[0] : '未知',
+                hot: `⭐ ${item.stargazers_count.toLocaleString()}`,
+                category: category,
+                url: repoUrl, // 新增：方便 app.js 等外部模块直接获取链接
+                content: `
+                    <p><strong>📝 简介：</strong>${item.description || '暂无简介'}</p>
+                    <p><strong>🌐 语言：</strong>${item.language || '未知'} | <strong>🔗 链接：</strong>
+                    <a href="${repoUrl}" target="_blank" rel="noopener noreferrer" class="external-link">${item.full_name}</a></p>
+                    <p style="color:var(--text-secondary);font-size:0.9rem;margin-top:12px;">
+                    ⭐ 星标：${item.stargazers_count.toLocaleString()} | 最后更新：${item.updated_at ? item.updated_at.split('T')[0] : '未知'}
+                    </p>`
+            };
+        });
     },
 
     async fetchArticles(category = 'tech') {
         console.log(`🚀 [API] 开始拉取数据，分类: ${category}`);
-
         const loading = document.getElementById('listLoading');
         const queries = this.queryMap[category] || this.queryMap['tech'];
 
-        // 🆕 1. 优先尝试读取缓存（秒开 + 离线可用）
         const cached = this._getCachedList(category);
         if (cached && cached.length > 0) {
             console.log(`💾 [API] 命中列表缓存: ${category} (${cached.length}条)`);
@@ -126,13 +123,10 @@ const API = {
                 Store.setArticles(cached);
             }
             if (loading) loading.style.display = 'none';
-            
-            // 🆕 2. 后台静默刷新（用户无感知）
             this._silentRefresh(category, queries);
             return cached;
         }
 
-        // 无缓存时正常走原有请求逻辑
         if (loading) loading.style.display = 'block';
 
         try {
@@ -144,20 +138,15 @@ const API = {
 
             if (typeof Store !== 'undefined' && typeof Store.setArticles === 'function') {
                 Store.setArticles(articles);
-                console.log('💾 [API] 数据已存入 Store');
             } else {
                 console.error('❌ [API] Store.setArticles 方法不存在！请检查 store.js');
             }
 
-            // 🆕 3. 请求成功后写入缓存
             this._setCachedList(category, articles);
-
             return articles;
 
         } catch (e) {
             console.error('❌ [API] 数据获取失败:', e);
-            
-            // 🆕 4. 请求失败时降级使用过期缓存
             const stale = this._getStaleList(category);
             if (stale && stale.length > 0) {
                 console.log(`⚠️ [API] 网络失败，降级使用过期缓存: ${category}`);
@@ -167,7 +156,6 @@ const API = {
                 }
                 return stale;
             }
-
             if (typeof showToast === 'function') showToast('获取开源热榜失败，请查看控制台');
             return [];
         } finally {
@@ -175,14 +163,12 @@ const API = {
         }
     },
 
-    // 🆕 后台静默刷新（不显示loading，不打断用户阅读）
     async _silentRefresh(category, queries) {
         try {
             console.log(`🔄 [API] 开始后台静默刷新: ${category}`);
             const results = await Promise.all(queries.map(q => this._search(q)));
             const merged = results.flat();
             const articles = this._processItems(merged, category);
-            
             this._setCachedList(category, articles);
             if (typeof Store !== 'undefined' && typeof Store.setArticles === 'function') {
                 Store.setArticles(articles);
@@ -194,7 +180,6 @@ const API = {
     },
 
     /* ================= README 懒加载（多级容错 + Base64解码 + Markdown渲染） ================= */
-
     _readmeCachePrefix: 'gh_readme_cache::',
     _readmeCacheMax: 30,
     _tokenKey: 'github_token',
@@ -240,11 +225,13 @@ const API = {
         }
     },
 
+    // ✅ 修复：增强链接处理，防御空 href，添加 noopener noreferrer
     _fixRelativeUrls(html, fullName) {
         try {
             const doc = new DOMParser().parseFromString(html, 'text/html');
             const rawBase = `https://raw.githubusercontent.com/${fullName}/HEAD/`;
             const blobBase = `https://github.com/${fullName}/blob/HEAD/`;
+
             const fix = (u, isImg) => {
                 if (!u) return u;
                 if (/^(https?:)?\/\//i.test(u) || u.startsWith('data:') || u.startsWith('#') || u.startsWith('mailto:')) return u;
@@ -252,14 +239,24 @@ const API = {
                 const clean = u.replace(/^\.\//, '');
                 return isImg ? rawBase + clean : blobBase + clean;
             };
-            doc.querySelectorAll('img[src]').forEach(el => el.setAttribute('src', fix(el.getAttribute('src'), true)));
-            doc.querySelectorAll('a[href]').forEach(el => {
-                el.setAttribute('href', fix(el.getAttribute('href'), false));
-                el.setAttribute('target', '_blank');
-                el.setAttribute('rel', 'noopener');
+
+            doc.querySelectorAll('img[src]').forEach(el => {
+                const src = el.getAttribute('src');
+                if (src) el.setAttribute('src', fix(src, true));
             });
+
+            doc.querySelectorAll('a[href]').forEach(el => {
+                const href = el.getAttribute('href');
+                if (!href) return; // 防御空链接
+                el.setAttribute('href', fix(href, false));
+                el.setAttribute('target', '_blank');
+                el.setAttribute('rel', 'noopener noreferrer');
+                el.classList.add('external-link');
+            });
+
             return doc.body.innerHTML;
         } catch (e) {
+            console.warn('⚠️ [API] _fixRelativeUrls 解析失败，返回原始HTML:', e);
             return html;
         }
     },
@@ -338,7 +335,7 @@ const API = {
             for (const name of candidates) {
                 const targetUrl = `https://raw.githubusercontent.com/${fullName}/HEAD/${name}`;
                 const r2 = await this._proxyFetch(targetUrl);
-                
+
                 if (r2.ok) {
                     const text = await r2.text();
                     const html = this._fixRelativeUrls(this._renderMarkdown(text), fullName);
@@ -360,3 +357,44 @@ const API = {
         return apiFailInfo || { ok: false, reason: 'error', message: 'README 加载失败，点击本项目可重试。' };
     }
 };
+
+// ✅ 新增：全局链接点击保护（IIFE 自执行，防止被其他脚本覆盖）
+// 解决 Vercel CSP 拦截 / 父级 click 事件 preventDefault 导致的链接失效问题
+(function () {
+    'use strict';
+
+    function handleExternalLink(e) {
+        const link = e.target.closest('a.external-link, a[target="_blank"]');
+        if (!link) return;
+
+        const href = link.getAttribute('href');
+        if (!href || href === '#' || href.startsWith('javascript:') || href.startsWith('mailto:')) return;
+
+        // 仅对 github 相关链接做特殊处理，避免影响站内导航
+        if (href.includes('github.com') || href.includes('raw.githubusercontent.com')) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            try {
+                const win = window.open(href, '_blank', 'noopener,noreferrer');
+                // 部分浏览器弹窗拦截器会返回 null 或立即关闭
+                if (!win || win.closed || typeof win.closed === 'undefined') {
+                    console.warn('⚠️ [LinkGuard] window.open 被拦截，回退到 location');
+                    window.location.href = href;
+                }
+            } catch (err) {
+                console.warn('⚠️ [LinkGuard] 打开链接异常:', err);
+                window.location.href = href;
+            }
+        }
+    }
+
+    // 使用捕获阶段，确保在其他 click 监听器之前执行
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            document.body.addEventListener('click', handleExternalLink, true);
+        });
+    } else {
+        document.body.addEventListener('click', handleExternalLink, true);
+    }
+})();
