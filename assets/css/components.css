@@ -234,3 +234,96 @@
     transition: all 0.2s;
 }
 #backTop:hover { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+/* =========================================
+   万能移动端强制修复补丁 (追加到 CSS 最末尾)
+   自动解决手机端横向溢出、布局挤压、文字缩放等问题
+   ========================================= */
+
+/* 1. 全局防崩坏基线 (强制所有元素不超出屏幕) */
+*, *::before, *::after {
+  box-sizing: border-box !important;
+  max-width: 100%; /* 强制所有元素最大宽度不超过父容器 */
+}
+
+html {
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important; /* 防止 iOS 横屏时字体自动放大 */
+  overflow-x: hidden !important; /* 强制禁止 html 水平滚动 */
+}
+
+body {
+  overflow-x: hidden !important; /* 强制禁止 body 水平滚动 */
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-all !important; /* 强制长链接/长单词换行 */
+}
+
+/* 2. 媒体与嵌入内容强制自适应 */
+img, picture, video, canvas, svg, iframe {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+  object-fit: cover;
+}
+
+/* 3. Markdown 代码块与表格防溢出 (允许内部横向滚动) */
+pre, code, table, .highlight, .markdown-body pre, .markdown-body table {
+  max-width: 100% !important;
+  display: block !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important; /* iOS 平滑滚动 */
+  word-wrap: normal !important;
+  white-space: pre !important;
+}
+
+/* 4. 强制 Flex/Grid 容器在窄屏下自动换行或单列 */
+[class*="flex"], [class*="grid"], [class*="row"], [class*="col"],
+.issue-list, .article-list, .card-list, .filter-bar, .header-actions {
+  flex-wrap: wrap !important;
+  width: 100% !important;
+}
+
+/* 5. 移动端专属强制覆盖 (屏幕宽度 < 768px) */
+@media screen and (max-width: 768px) {
+  /* 强制所有网格布局变为单列 */
+  [class*="grid"], .issue-list, .article-list, .card-list {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  /* 强制卡片/容器减小内边距，释放屏幕空间 */
+  [class*="card"], [class*="container"], [class*="wrapper"], article, section {
+    padding: 12px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+    border-radius: 8px !important;
+  }
+
+  /* 强制隐藏桌面端专属的复杂侧边栏 (防止挤占主屏幕) */
+  aside, .sidebar, [class*="sidebar"] {
+    display: none !important; 
+  }
+
+  /* 优化触摸目标 (确保按钮和链接在手机上容易点击) */
+  a, button, input, select, textarea, [role="button"] {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    touch-action: manipulation !important; /* 消除 iOS 300ms 点击延迟 */
+  }
+
+  /* 强制输入框不撑破屏幕 */
+  input, select, textarea {
+    width: 100% !important;
+    font-size: 16px !important; /* 防止 iOS 聚焦时自动缩放页面 */
+  }
+
+  /* 强制头部导航紧凑显示 */
+  header, nav, .app-header {
+    flex-wrap: wrap !important;
+    height: auto !important;
+    min-height: 56px !important;
+    padding: 8px 12px !important;
+  }
+}
