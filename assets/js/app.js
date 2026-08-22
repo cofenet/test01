@@ -25,7 +25,7 @@
     loadArticles('tech');  // 默认加载科技类
     loadWeather();
     Render.renderHistory();
-    Render.updateFavoritesStat();
+    Render.updateStat();
   });
 
   // ========== 数据加载 ==========
@@ -94,7 +94,7 @@
     var filtered = getFilteredArticles();
     Render.renderList(filtered);
     Render.updateStat(filtered);
-    Render.updateFavoritesStat();
+    Render.updateStat();
   }
 
   // ========== 事件绑定 ==========
